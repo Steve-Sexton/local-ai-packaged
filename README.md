@@ -303,6 +303,26 @@ language model and Qdrant as your vector store.
 
 ## Upgrading
 
+### Update just Ollama and Open WebUI reliably
+
+If your stack is already running and you only want to refresh Ollama + Open WebUI with minimal disruption, use:
+
+```bash
+python start_services.py --profile <your-profile> --update-running-images
+```
+
+This command:
+- verifies the Compose config first (`docker compose config -q`) to fail fast on deployment errors
+- retries `docker compose pull` for transient Docker/network failures
+- pulls and recreates only `open-webui` and the selected Ollama service (`ollama-gpu`, `ollama-gpu-amd`, or `ollama-cpu`), so the image tags come directly from `docker-compose.yml` for compatibility
+- avoids a full stack shutdown/restart
+
+If you prefer a full restart flow after pulling those images, use:
+
+```bash
+python start_services.py --profile <your-profile> --update-images
+```
+
 To update all containers to their latest versions (n8n, Open WebUI, etc.), run these commands:
 
 ```bash
@@ -318,7 +338,7 @@ python start_services.py --profile <your-profile>
 
 Replace `<your-profile>` with one of: `cpu`, `gpu-nvidia`, `gpu-amd`, or `none`.
 
-Note: The `start_services.py` script itself does not update containers - it only restarts them or pulls them if you are downloading these containers for the first time. To get the latest versions, you must explicitly run the commands above.
+Note: `start_services.py` can update Ollama/Open WebUI via `--update-running-images` (in-place) or `--update-images` (pull + full restart). To update every container in the stack, use the full `docker compose pull` workflow above.
 
 ## Troubleshooting
 
