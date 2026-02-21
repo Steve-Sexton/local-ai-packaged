@@ -179,7 +179,7 @@ python start_services.py --profile cpu
 ```
 
 ### The environment argument
-The **start-services.py** script offers the possibility to pass one of two options for the environment argument, **private** (default environment) and **public**:
+The **start_services.py** script offers the possibility to pass one of two options for the environment argument, **private** (default environment) and **public**:
 - **private:** you are deploying the stack in a safe environment, hence a lot of ports can be made accessible without having to worry about security
 - **public:** the stack is deployed in a public environment, which means the attack surface should be made as small as possible. All ports except for 80 and 443 are closed
 
@@ -212,7 +212,7 @@ Before running the above commands to pull the repo and install everything:
    ufw does not shield ports published by docker, because the iptables rules configured by docker are analyzed before those configured by ufw. There is a solution to change this behavior, but that is out of scope for this project. Just make sure that all traffic runs through the caddy service via port 443. Port 80 should only be used to redirect to port 443.
 
    ---
-2. Run the **start-services.py** script with the environment argument **public** to indicate you are going to run the package in a public environment. The script will make sure that all ports, except for 80 and 443, are closed down, e.g.
+2. Run the **start_services.py** script with the environment argument **public** to indicate you are going to run the package in a public environment. The script will make sure that all ports, except for 80 and 443, are closed down, e.g.
 
 ```bash
    python3 start_services.py --profile gpu-nvidia --environment public
