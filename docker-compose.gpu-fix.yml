@@ -1,0 +1,9 @@
+# Docker Compose override for GPU-enabled Ollama
+# This file fixes GPU access for Docker Desktop on Windows
+
+services:
+  ollama-gpu:
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
