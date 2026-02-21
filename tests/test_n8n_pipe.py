@@ -45,6 +45,33 @@ class TestPipe(unittest.IsolatedAsyncioTestCase):
         self.assertIn("No messages found", body["messages"][-1]["content"])
         self.assertTrue(any(e["data"]["level"] == "error" for e in emitted_events))
 
+
+    async def test_pipe_with_missing_messages_key_does_not_crash(self):
+        pipe = Pipe()
+        body = {}
+        emitted_events = []
+
+        async def emitter(event):
+            emitted_events.append(event)
+
+        result = await pipe.pipe(body, __event_emitter__=emitter)
+
+        self.assertIsNone(result)
+        self.assertIn("messages", body)
+        self.assertEqual(body["messages"][-1]["role"], "assistant")
+        self.assertIn("No messages found", body["messages"][-1]["content"])
+        self.assertTrue(any(e["data"]["level"] == "error" for e in emitted_events))
+
+    async def test_pipe_with_malformed_message_returns_controlled_error(self):
+        pipe = Pipe()
+        pipe.valves.n8n_url = "https://example.test/webhook"
+        body = {"messages": [{"role": "user"}]}
+
+        result = await pipe.pipe(body)
+
+        self.assertIn("error", result)
+        self.assertIn("content", result["error"])
+
     async def test_pipe_success_appends_response_and_returns_response_field(self):
         pipe = Pipe()
         pipe.valves.n8n_url = "https://example.test/webhook"

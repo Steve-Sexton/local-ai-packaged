@@ -7,7 +7,7 @@ version: 0.1.0
 This module defines a Pipe class that utilizes N8N for an Agent
 """
 
-from typing import Optional, Callable, Awaitable
+from typing import Optional, Callable, Awaitable, Union
 from pydantic import BaseModel, Field
 import os
 import time
@@ -80,18 +80,28 @@ class Pipe:
         __user__: Optional[dict] = None,
         __event_emitter__: Callable[[dict], Awaitable[None]] = None,
         __event_call__: Callable[[dict], Awaitable[dict]] = None,
-    ) -> Optional[dict]:
+    ) -> Optional[Union[str, dict]]:
         await self.emit_status(
             __event_emitter__, "info", "/Calling N8N Workflow...", False
         )
         chat_id, _ = extract_event_info(__event_emitter__)
-        messages = body.get("messages", [])
+        messages = body.setdefault("messages", [])
+
+        if not isinstance(messages, list):
+            await self.emit_status(
+                __event_emitter__,
+                "error",
+                "Invalid payload: 'messages' must be a list",
+                True,
+            )
+            return {"error": "Invalid payload: 'messages' must be a list"}
+
         n8n_response = None
 
         # Verify a message is available
         if messages:
-            question = messages[-1]["content"]
             try:
+                question = messages[-1]["content"]
                 # Invoke N8N workflow
                 headers = {
                     "Authorization": f"Bearer {self.valves.n8n_bearer_token}",
@@ -125,7 +135,7 @@ class Pipe:
                 "No messages found in the request body",
                 True,
             )
-            body["messages"].append(
+            messages.append(
                 {
                     "role": "assistant",
                     "content": "No messages found in the request body",

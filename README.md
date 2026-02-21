@@ -196,7 +196,7 @@ equals the one initialized with
 
 ### Prerequisites for the below steps
 
-- Linux machine (preferably Unbuntu) with Nano, Git, and Docker installed
+- Linux machine (preferably Ubuntu) with Nano, Git, and Docker installed
 
 ### Extra steps
 
