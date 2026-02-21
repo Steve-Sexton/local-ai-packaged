@@ -1,9 +1,66 @@
 services:
-  analytics:
-    ports: !reset null
+  flowise:
+    ports:
+      - 3001:3001
 
-  kong:
-    ports: !reset null
+  open-webui:
+    ports:
+      - 8080:8080
 
-  supavisor:
-    ports: !reset null
+  n8n:
+    ports:
+      - 5678:5678
+
+  qdrant:
+    ports:
+      - 6333:6333
+      - 6334:6334
+
+  neo4j:
+    ports:
+      - 7473:7473
+      - 7474:7474
+      - 7687:7687
+
+  langfuse-worker:
+    ports:
+      - 3030:3030
+
+  langfuse-web:
+    ports:
+      - 3000:3000
+
+  clickhouse:
+    ports:
+      - 8123:8123
+      - 9000:9000
+      - 9009:9009
+
+  minio:
+    ports:
+      - 9010:9000
+      - 9011:9001
+
+  postgres:
+    ports:
+      - 5433:5432
+
+  redis:
+    ports:
+      - 6379:6379
+
+  searxng:
+    ports:
+      - 8081:8080
+
+  ollama-cpu:
+    ports:
+      - 11434:11434
+
+  ollama-gpu:
+    ports:
+      - 11434:11434
+
+  ollama-gpu-amd:
+    ports:
+      - 11434:11434

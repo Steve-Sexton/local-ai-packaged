@@ -2,12 +2,11 @@
 
 **Self-hosted AI Package** is an open, docker compose template that
 quickly bootstraps a fully featured Local AI and Low Code development
-environment including Ollama for your local LLMs, Open WebUI for an interface to chat with your N8N agents, and Supabase for your database, vector store, and authentication. 
+environment including Ollama for your local LLMs, Open WebUI for an interface to chat with your N8N agents, and PostgreSQL for your database. 
 
-This is Cole's version with a couple of improvements and the addition of Supabase, Open WebUI, Flowise, Neo4j, Langfuse, SearXNG, and Caddy!
+This is Cole's version with a couple of improvements and the addition of PostgreSQL, Open WebUI, Flowise, Neo4j, Langfuse, SearXNG, and Caddy!
 Pre-built RAG AI Agent workflows from the video are included in `n8n/backup/workflows/` - see [Importing Starter Workflows](#importing-starter-workflows) for setup instructions.
 
-**IMPORANT**: Supabase has updated a couple environment variables so you may have to add some new default values in your .env that I have in my .env.example if you have had this project up and running already and are just pulling new changes. Specifically, you need to add "POOLER_DB_POOL_SIZE=5" to your .env. This is required if you have had the package running before June 14th.
 
 ## Important Links
 
@@ -30,8 +29,7 @@ quickly get started with building self-hosted AI workflows.
 ✅ [**Self-hosted n8n**](https://n8n.io/) - Low-code platform with over 400
 integrations and advanced AI components
 
-✅ [**Supabase**](https://supabase.com/) - Open source database as a service -
-most widely used database for AI agents
+✅ **PostgreSQL** - Open source relational database used by n8n and Langfuse
 
 ✅ [**Ollama**](https://ollama.com/) - Cross-platform LLM platform to install
 and run the latest local LLMs
@@ -43,8 +41,7 @@ privately interact with your local models and N8N agents
 builder that pairs very well with n8n
 
 ✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector
-store with an comprehensive API. Even though you can use Supabase for RAG, this was
-kept unlike Postgres since it's faster than Supabase so sometimes is the better option.
+store with an comprehensive API. Qdrant is included as a high-performance vector store option for RAG workloads.
 
 ✅ [**Neo4j**](https://neo4j.com/) - Knowledge graph engine that powers tools like GraphRAG, LightRAG, and Graphiti 
 
@@ -71,7 +68,7 @@ git clone -b stable https://github.com/coleam00/local-ai-packaged.git
 cd local-ai-packaged
 ```
 
-Before running the services, you need to set up your environment variables for Supabase following their [self-hosting guide](https://supabase.com/docs/guides/self-hosting/docker#securing-your-services).
+Before running the services, set up your environment variables in `.env`.
 
 1. Make a copy of `.env.example` and rename it to `.env` in the root directory of the project
 2. Set the following required environment variables:
@@ -83,15 +80,9 @@ Before running the services, you need to set up your environment variables for S
    N8N_USER_MANAGEMENT_JWT_SECRET=
 
    ############
-   # Supabase Secrets
+   # PostgreSQL
    ############
    POSTGRES_PASSWORD=
-   JWT_SECRET=
-   ANON_KEY=
-   SERVICE_ROLE_KEY=
-   DASHBOARD_USERNAME=
-   DASHBOARD_PASSWORD=
-   POOLER_TENANT_ID=
 
    ############
    # Neo4j Secrets
@@ -121,7 +112,6 @@ Before running the services, you need to set up your environment variables for S
    N8N_HOSTNAME=n8n.yourdomain.com
    WEBUI_HOSTNAME=:openwebui.yourdomain.com
    FLOWISE_HOSTNAME=:flowise.yourdomain.com
-   SUPABASE_HOSTNAME=:supabase.yourdomain.com
    OLLAMA_HOSTNAME=:ollama.yourdomain.com
    SEARXNG_HOSTNAME=searxng.yourdomain.com
    NEO4J_HOSTNAME=neo4j.yourdomain.com
@@ -130,7 +120,7 @@ Before running the services, you need to set up your environment variables for S
 
 ---
 
-The project includes a `start_services.py` script that handles starting both the Supabase and local AI services. The script accepts a `--profile` flag to specify which GPU configuration to use.
+The project includes a `start_services.py` script that starts all local AI services (including PostgreSQL). The script accepts a `--profile` flag to specify which GPU configuration to use.
 
 ### For Nvidia GPU users
 
@@ -270,8 +260,7 @@ to get started.
    
    Ollama URL: http://ollama:11434
 
-   Postgres (through Supabase): use DB, username, and password from .env. IMPORTANT: Host is 'db'
-   Since that is the name of the service running Supabase
+   Postgres: use DB, username, and password from .env. Host is `postgres`
 
    Qdrant URL: http://qdrant:6333 (API key can be whatever since this is running locally)
 
@@ -335,19 +324,15 @@ Note: The `start_services.py` script itself does not update containers - it only
 
 Here are solutions to common issues you might encounter:
 
-### Supabase Issues
+### Database Issues
 
-- **Supabase Pooler Restarting**: If the supabase-pooler container keeps restarting itself, follow the instructions in [this GitHub issue](https://github.com/supabase/supabase/issues/30210#issuecomment-2456955578).
-
-- **Supabase Analytics Startup Failure**: If the supabase-analytics container fails to start after changing your Postgres password, delete the folder `supabase/docker/volumes/db/data`.
+- **PostgreSQL authentication failures**: Re-check `POSTGRES_PASSWORD` in `.env`, then recreate containers with `docker compose -p localai -f docker-compose.yml down` followed by `python start_services.py --profile cpu`.
 
 - **If using Docker Desktop**: Go into the Docker settings and make sure "Expose daemon on tcp://localhost:2375 without TLS" is turned on
 
-- **Supabase Service Unavailable** - Make sure you don't have an "@" character in your Postgres password! If the connection to the kong container is working (the container logs say it is receiving requests from n8n) but n8n says it cannot connect, this is generally the problem from what the community has shared. Other characters might not be allowed too, the @ symbol is just the one I know for sure!
 
 - **SearXNG Restarting**: If the SearXNG container keeps restarting, run the command "chmod 755 searxng" within the local-ai-packaged folder so SearXNG has the permissions it needs to create the uwsgi.ini file.
 
-- **Files not Found in Supabase Folder** - If you get any errors around files missing in the supabase/ folder like .env, docker/docker-compose.yml, etc. this most likely means you had a "bad" pull of the Supabase GitHub repository when you ran the start_services.py script. Delete the supabase/ folder within the Local AI Package folder entirely and try again.
 
 ### GPU Support Issues
 

@@ -1,9 +1,3 @@
-services:
-  analytics:
-    ports: !reset null
-
-  kong:
-    ports: !reset null
-
-  supavisor:
-    ports: !reset null
+# Deprecated: Supabase stack has been removed in favor of local PostgreSQL.
+# This file is intentionally left as a no-op for backward compatibility.
+services: {}

@@ -1,6 +1,3 @@
-include:
-  - ./supabase/docker/docker-compose.yml
-
 volumes:
   n8n_storage:
   ollama_storage:
@@ -19,7 +16,7 @@ x-n8n: &service-n8n
   image: n8nio/n8n:latest
   environment:
     - DB_TYPE=postgresdb
-    - DB_POSTGRESDB_HOST=db
+    - DB_POSTGRESDB_HOST=postgres
     - DB_POSTGRESDB_USER=postgres
     - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
     - DB_POSTGRESDB_DATABASE=postgres
@@ -141,7 +138,6 @@ services:
       - WEBUI_HOSTNAME=${WEBUI_HOSTNAME:-":8002"}
       - FLOWISE_HOSTNAME=${FLOWISE_HOSTNAME:-":8003"}
       - OLLAMA_HOSTNAME=${OLLAMA_HOSTNAME:-":8004"}
-      - SUPABASE_HOSTNAME=${SUPABASE_HOSTNAME:-":8005"}
       - SEARXNG_HOSTNAME=${SEARXNG_HOSTNAME:-":8006"}
       - LANGFUSE_HOSTNAME=${LANGFUSE_HOSTNAME:-":8007"}
       - NEO4J_HOSTNAME=${NEO4J_HOSTNAME:-":8008"}
