@@ -11,6 +11,7 @@ import shutil
 import argparse
 import platform
 import time
+import re
 
 
 def run_command(cmd, cwd=None):
@@ -220,23 +221,54 @@ def check_and_fix_docker_compose_for_searxng():
         except Exception as e:
             print(f"Error checking Docker container: {e} - assuming first run")
 
-        if is_first_run and "cap_drop: - ALL" in content:
+        if is_first_run:
             print("First run detected for SearXNG. Temporarily removing 'cap_drop: - ALL' directive...")
-            modified_content = content.replace("cap_drop: - ALL", "# cap_drop: - ALL  # Temporarily commented out for first run")
+            modified_content, was_modified = _toggle_searxng_cap_drop(content, disable=True)
 
-            with open(docker_compose_path, 'w') as file:
-                file.write(modified_content)
+            if was_modified:
+                with open(docker_compose_path, 'w') as file:
+                    file.write(modified_content)
 
-            print("Note: After the first run completes successfully, you should re-add 'cap_drop: - ALL' to docker-compose.yml for security reasons.")
-        elif not is_first_run and "# cap_drop: - ALL  # Temporarily commented out for first run" in content:
+                print("Note: After the first run completes successfully, you should re-add 'cap_drop: - ALL' to docker-compose.yml for security reasons.")
+        elif not is_first_run:
             print("SearXNG has been initialized. Re-enabling 'cap_drop: - ALL' directive for security...")
-            modified_content = content.replace("# cap_drop: - ALL  # Temporarily commented out for first run", "cap_drop: - ALL")
+            modified_content, was_modified = _toggle_searxng_cap_drop(content, disable=False)
 
-            with open(docker_compose_path, 'w') as file:
-                file.write(modified_content)
+            if was_modified:
+                with open(docker_compose_path, 'w') as file:
+                    file.write(modified_content)
 
     except Exception as e:
         print(f"Error checking/modifying docker-compose.yml for SearXNG: {e}")
+
+
+def _toggle_searxng_cap_drop(content, disable):
+    """Toggle the cap_drop block inside only the searxng service definition."""
+    searxng_match = re.search(
+        r"(^  searxng:\r?\n(?:^(?:    .*|\s*)\r?\n?)*)",
+        content,
+        flags=re.MULTILINE,
+    )
+    if not searxng_match:
+        return content, False
+
+    searxng_block = searxng_match.group(1)
+    newline = "\r\n" if "\r\n" in searxng_block else "\n"
+    active = f"    cap_drop:{newline}      - ALL"
+    disabled = (
+        f"    # cap_drop:{newline}"
+        f"    #   - ALL  # Temporarily commented out for first run"
+    )
+
+    if disable and active in searxng_block:
+        updated_block = searxng_block.replace(active, disabled, 1)
+    elif not disable and disabled in searxng_block:
+        updated_block = searxng_block.replace(disabled, active, 1)
+    else:
+        return content, False
+
+    updated_content = content[:searxng_match.start(1)] + updated_block + content[searxng_match.end(1):]
+    return updated_content, True
 
 
 def main():
