@@ -10,6 +10,7 @@ import subprocess
 import shutil
 import argparse
 import platform
+import time
 
 
 def run_command(cmd, cwd=None):
@@ -18,27 +19,98 @@ def run_command(cmd, cwd=None):
     subprocess.run(cmd, cwd=cwd, check=True)
 
 
-def stop_existing_containers(profile=None):
-    print("Stopping and removing existing containers for the unified project 'localai'...")
+def compose_base_command(profile=None, environment=None):
+    """Build the base Docker Compose command for this project."""
     cmd = ["docker", "compose", "-p", "localai"]
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
-    cmd.extend(["-f", "docker-compose.yml", "down"])
+    cmd.extend(["-f", "docker-compose.yml"])
+    if environment == "private":
+        cmd.extend(["-f", "docker-compose.override.private.yml"])
+    if environment == "public":
+        cmd.extend(["-f", "docker-compose.override.public.yml"])
+    return cmd
+
+
+def get_update_services(profile=None):
+    """Return Compose services that should be refreshed for Ollama/Open WebUI updates."""
+    services = ["open-webui"]
+
+    if profile == "gpu-amd":
+        services.append("ollama-gpu-amd")
+    elif profile == "gpu-nvidia":
+        services.append("ollama-gpu")
+    elif profile == "cpu":
+        services.append("ollama-cpu")
+
+    return services
+
+
+def pull_services_with_retry(profile=None, environment=None, services=None, retries=3, delay_seconds=3):
+    """Pull Docker Compose services with retries to handle transient failures."""
+    services = services or []
+    if not services:
+        return
+
+    for attempt in range(1, retries + 1):
+        print(
+            f"Pulling services {', '.join(services)} "
+            f"(attempt {attempt}/{retries})..."
+        )
+        cmd = compose_base_command(profile=profile, environment=environment)
+        cmd.extend(["pull", *services])
+        result = subprocess.run(cmd, check=False)
+        if result.returncode == 0:
+            print("Successfully pulled update services.")
+            return
+
+        if attempt < retries:
+            print(f"Pull failed. Retrying in {delay_seconds} seconds...")
+            time.sleep(delay_seconds)
+
+    raise RuntimeError(
+        f"Failed to pull services {', '.join(services)} after {retries} attempts."
+    )
+
+
+def update_ollama_and_openwebui_images(profile=None, environment=None):
+    """Pull fresh, Compose-compatible Ollama and Open WebUI images."""
+    print("Updating Ollama and Open WebUI images...")
+    services = get_update_services(profile)
+    pull_services_with_retry(profile=profile, environment=environment, services=services)
+
+
+def verify_compose_configuration(profile=None, environment=None):
+    """Validate Docker Compose configuration before deployment actions."""
+    print("Verifying Docker Compose configuration...")
+    cmd = compose_base_command(profile=profile, environment=environment)
+    cmd.extend(["config", "-q"])
+    run_command(cmd)
+
+
+def stop_existing_containers(profile=None, environment=None):
+    print("Stopping and removing existing containers for the unified project 'localai'...")
+    cmd = compose_base_command(profile=profile, environment=environment)
+    cmd.append("down")
     run_command(cmd)
 
 
 def start_local_ai(profile=None, environment=None):
     """Start the local AI services (using its compose file)."""
     print("Starting local AI services...")
-    cmd = ["docker", "compose", "-p", "localai"]
-    if profile and profile != "none":
-        cmd.extend(["--profile", profile])
-    cmd.extend(["-f", "docker-compose.yml"])
-    if environment and environment == "private":
-        cmd.extend(["-f", "docker-compose.override.private.yml"])
-    if environment and environment == "public":
-        cmd.extend(["-f", "docker-compose.override.public.yml"])
+    cmd = compose_base_command(profile=profile, environment=environment)
     cmd.extend(["up", "-d"])
+    run_command(cmd)
+
+
+def refresh_running_ollama_and_openwebui(profile=None, environment=None):
+    """Update running Ollama/Open WebUI containers with latest images."""
+    print("Refreshing running Ollama and Open WebUI services...")
+    services = get_update_services(profile)
+    update_ollama_and_openwebui_images(profile=profile, environment=environment)
+
+    cmd = compose_base_command(profile=profile, environment=environment)
+    cmd.extend(["up", "-d", "--no-deps", "--force-recreate", *services])
     run_command(cmd)
 
 
@@ -169,16 +241,32 @@ def check_and_fix_docker_compose_for_searxng():
 
 def main():
     parser = argparse.ArgumentParser(description='Start the local AI services.')
-    parser.add_argument('--profile', choices=['cpu', 'gpu-nvidia', 'gpu-amd', 'none'], default='cpu',
-                      help='Profile to use for Docker Compose (default: cpu)')
+    parser.add_argument('--profile', choices=['cpu', 'gpu-nvidia', 'gpu-amd', 'none'], default='gpu-nvidia',
+                      help='Profile to use for Docker Compose (default: gpu-nvidia)')
     parser.add_argument('--environment', choices=['private', 'public'], default='private',
                       help='Environment to use for Docker Compose (default: private)')
+    parser.add_argument('--update-images', action='store_true',
+                      help='Pull the latest Ollama and Open WebUI images before restarting services')
+    parser.add_argument('--update-running-images', action='store_true',
+                      help='Pull and recreate only running Ollama/Open WebUI services without full stack restart')
     args = parser.parse_args()
+
+    if args.update_images and args.update_running_images:
+        parser.error("--update-images and --update-running-images cannot be used together")
+
+    verify_compose_configuration(args.profile, args.environment)
+
+    if args.update_running_images:
+        refresh_running_ollama_and_openwebui(args.profile, args.environment)
+        return
 
     generate_searxng_secret_key()
     check_and_fix_docker_compose_for_searxng()
 
-    stop_existing_containers(args.profile)
+    if args.update_images:
+        update_ollama_and_openwebui_images(args.profile, args.environment)
+
+    stop_existing_containers(args.profile, args.environment)
     start_local_ai(args.profile, args.environment)
 
 
